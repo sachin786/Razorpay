@@ -1,0 +1,102 @@
+﻿@page
+@model RazorPay.Areas.Payment.Pages.IndexModel
+@{
+    Layout = "_Layout";
+}
+<div>
+    <div class="row">
+        <div class="offset-1 col-2 mt-2">
+            <strong>Name</strong>
+        </div>
+        <div class="col-4 mt-2">
+            <input type="text" asp-for="Name" id="Name" class="form-control" />
+        </div>
+    </div>
+    <div class="row">
+        <div class="offset-1 col-2 mt-2">
+            <strong>Mobile</strong>
+        </div>
+        <div class="col-4 mt-2">
+            <input type="text" asp-for="Mobile" id="Mobile" class="form-control" />
+        </div>
+    </div>
+    <div class="row">
+        <div class="offset-1 col-2 mt-2">
+            <strong>Email</strong>
+        </div>
+        <div class="col-4 mt-2">
+            <input type="text" asp-for="Email" id="Email" class="form-control" />
+        </div>
+    </div>
+    <div class="row">
+        <div class="offset-1 col-2 mt-2">
+            <strong>Amount</strong>
+        </div>
+        <div class="col-4 mt-2">
+            ₹ @Model.Amount.ToString("0.00")
+            <input type="hidden" asp-for="Amount" id="Amount" value="@Model.Amount" />
+        </div>
+    </div>
+    <div class="row">
+        <div class="offset-6 col-4 mt-1">
+            <button type="submit" onclick="PaymentInitialization(event)" class="btn btn-outline-primary">Payment</button>
+        </div>
+    </div>
+</div>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+@Html.AntiForgeryToken()
+<script type="text/javascript">
+    function PaymentInitialization(e) {
+        e.preventDefault();
+        var Userdata = {
+            Name: $("#Name").val(),
+            Mobile: $("#Mobile").val(),
+            Email: $("#Email").val(),
+            Amount: $("#Amount").val(),
+        }
+        $.ajax(
+            {
+                url: '@Url.Content("~/Payment?handler=PaymentInitialization")',
+                method: "POST",
+                data: JSON.stringify(Userdata),
+                cache: false,
+                contentType: "application/json",
+                beforeSend: function (xhr) { xhr.setRequestHeader("XSRF-TOKEN", $('input:hidden[name="__RequestVerificationToken"]').val()); },
+                async: true,
+                success: function (result) {
+                    var paymentNotes = result.Notes;
+                    var options = {
+                        "key": result.key, // Enter the Key ID generated from the Dashboard
+                        "amount": result.amountInSubUnits, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+                        "currency": result.currency,
+                        "name": result.name,
+                        "description": result.description,
+                        "image": result.imageLogUrl,
+                        "order_id": result.orderId, //This is a sample Order ID. Pass the `id` obtained in the response of Step 1
+                        "handler": function (response) {
+                            window.location.href = "@Url.Content("~/Payment/Response")?paymentStatus=Success&orderId=" + response.razorpay_order_id + "&paymentId=" + response.razorpay_payment_id + "&signature=" + response.razorpay_signature + "";
+                        },
+                        "prefill": {
+                            "name": result.ProfileName,
+                            "email": result.profileEmail,
+                            "contact": result.profileContact
+                        },
+                        "notes": paymentNotes,
+                        "theme": {
+                            "color": "#F37254"
+                        }
+                    };
+                    var rzp1 = new Razorpay(options);
+                    rzp1.on('payment.failed', function (response) {
+                        console.log(response.error);
+                        window.location.href = "@Url.Content("~/Payment/Response")?paymentStatus=Success&orderId=" + response.razorpay_order_id + "&paymentId=" + response.razorpay_payment_id + "&signature=" + response.razorpay_signature + "";
+                    });
+                    rzp1.open();
+                },
+                error: function () {
+
+                }
+            });
+    }
+</script>
+
